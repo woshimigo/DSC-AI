@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 聊天助手</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <style>
+        :root {
+            --primary: #6e44ff;
+            --primary-dark: #5a36d1;
+            --secondary: #00c9a7;
+            --dark: #1a1a2e;
+            --darker: #0d0d1a;
+            --light: #f0f0f5;
+            --gray: #2d2d44;
+            --card-bg: rgba(30, 30, 46, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--darker), var(--dark));
+            color: var(--light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            background: var(--primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .model-selector {
+            display: flex;
+            gap: 10px;
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 50px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .model-btn {
+            padding: 8px 20px;
+            border-radius: 50px;
+            border: none;
+            background: transparent;
+            color: var(--light);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .model-btn.active {
+            background: var(--primary);
+            box-shadow: 0 0 15px rgba(110, 68, 255, 0.5);
+        }
+        
+        .main-container {
+            display: flex;
+            flex: 1;
+            padding: 2rem;
+            gap: 2rem;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg);
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .chat-header {
+            padding: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+        }
+        
+        .chat-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--secondary);
+            box-shadow: 0 0 10px var(--secondary);
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .message {
+            display: flex;
+            gap: 15px;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.2rem;
+        }
+        
+        .user-avatar {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+        
+        .ai-avatar {
+            background: linear-gradient(135deg, #ff6b6b, #ffa36c);
+        }
+        
+        .message-content {
+            flex: 1;
+        }
+        
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .message-role {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .message-time {
+            color: #a0a0c0;
+            font-size: 0.85rem;
+        }
+        
+        .message-text {
+            line-height: 1.6;
+            padding: 15px;
+            border-radius: 15px;
+            background: rgba(40, 40, 60, 0.6);
+            border: 1px solid var(--card-border);
+            overflow-wrap: break-word;
+        }
+        
+        .user .message-text {
+            background: rgba(110, 68, 255, 0.15);
+            border: 1px solid rgba(110, 68, 255, 0.3);
+        }
+        
+        .ai .message-text {
+            background: rgba(255, 107, 107, 0.15);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+        
+        .message-text img {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 10px;
+            display: block;
+        }
+        
+        .input-container {
+            padding: 1.5rem;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .tools-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .file-upload {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 8px 15px;
+            background: rgba(40, 40, 60, 0.6);
+            border-radius: 50px;
+            transition: all 0.3s ease;
+        }
+        
+        .file-upload:hover {
+            background: var(--primary);
+        }
+        
+        .input-row {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 15px 20px;
+            border-radius: 15px;
+            border: none;
+            background: rgba(40, 40, 60, 0.6);
+            color: var(--light);
+            font-size: 1rem;
+            border: 1px solid var(--card-border);
+            resize: none;
+            min-height: 60px;
+            max-height: 150px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .message-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(110, 68, 255, 0.3);
+        }
+        
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            align-self: flex-end;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+        }
+        
+        .send-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(110, 68, 255, 0.4);
+        }
+        
+        .features-panel {
+            width: 320px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .panel-title {
+            font-size: 1.4rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .feature-card {
+            background: rgba(40, 40, 60, 0.6);
+            border: 1px solid var(--card-border);
+            border-radius: 15px;
+            padding: 1.2rem;
+            margin-bottom: 1.2rem;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+        
+        .feature-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        
+        .feature-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .feature-desc {
+            color: #a0a0c0;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+        
+        .divider {
+            height: 1px;
+            background: var(--card-border);
+            margin: 1.5rem 0;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            background: rgba(40, 40, 60, 0.6);
+            border-radius: 50px;
+            width: fit-content;
+            margin-top: 10px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--secondary);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.3s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.6s;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+        
+        .image-preview {
+            margin-top: 15px;
+            border-radius: 10px;
+            overflow: hidden;
+            max-width: 100%;
+            display: none;
+        }
+        
+        .image-preview img {
+            width: 100%;
+            display: block;
+        }
+        
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: #a0a0c0;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.3s ease;
+            padding: 5px;
+        }
+        
+        .copy-btn:hover {
+            color: var(--secondary);
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .preview-title {
+            font-size: 0.95rem;
+            color: #a0a0c0;
+        }
+        
+        .remove-btn {
+            background: transparent;
+            border: none;
+            color: #ff6b6b;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .features-panel {
+                width: 100%;
+            }
+        }
+        
+        .message-text pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .message-text code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+        }
+        
+        .copy-code {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #a0a0c0;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+        
+        .copy-code:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            background: rgba(40, 40, 60, 0.6);
+            border-radius: 50px;
+            width: fit-content;
+        }
+        
+        .api-status .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .api-status .connected {
+            background: var(--secondary);
+            box-shadow: 0 0 8px var(--secondary);
+        }
+        
+        .api-status .disconnected {
+            background: #ff6b6b;
+        }
+        
+        .token-count {
+            color: #a0a0c0;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+        
+        .streaming-message {
+            min-height: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fas fa-brain"></i>
+            </div>
+            <h1>AI</h1>
+        </div>
+        <div class="model-selector">
+            <button class="model-btn active" data-model="deepseek-reasoner">R1 (Reasoner)</button>
+            <button class="model-btn" data-model="deepseek-chat">V3 (Chat)</button>
+            <div class="api-status">
+                <div class="indicator connected"></div>
+                <span>可用</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="features-panel">
+            <h2 class="panel-title"><i class="fas fa-star"></i> 功能特性</h2>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="feature-title">流式响应</div>
+                </div>
+                <p class="feature-desc">实时接收AI响应，体验快速流畅的对话交互，无需等待整个响应完成。</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">
+                        <i class="fas fa-file-upload"></i>
+                    </div>
+                    <div class="feature-title">文件上传</div>
+                </div>
+                <p class="feature-desc">支持上传文本、代码和文档文件，AI可以分析内容并回答相关问题。</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">
+                        <i class="fas fa-code"></i>
+                    </div>
+                    <div class="feature-title">Markdown支持</div>
+                </div>
+                <p class="feature-desc">完美渲染Markdown格式，包括代码块、表格、列表等，支持一键复制代码。</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <div class="feature-title">图像描述生成</div>
+                </div>
+                <p class="feature-desc">AI根据您的描述生成生动图像，体验文字到图像的创造力。</p>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <div class="feature-title">使用提示</div>
+                </div>
+                <p class="feature-desc">• 输入 <code>/image</code> 或包含"图片"的描述来生成图像<br>
+                • 使用 <code>```</code> 包裹代码获得更好的格式<br>
+                • 点击代码块右上角的复制按钮复制代码</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="feature-title">API 状态</div>
+                </div>
+                <p class="feature-desc">已成功连接到 Deepseek API<br>
+                当前模型: <span id="currentModelDisplay">R1 (Reasoner)</span></p>
+                <div class="token-count">Tokens 使用: <span id="tokenCount">0</span></div>
+            </div>
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="chat-title">
+                    <div class="status-indicator"></div>
+                    <span>AI 聊天助手</span>
+                </div>
+                <div class="file-upload" id="uploadBtn">
+                    <i class="fas fa-paperclip"></i>
+                    <span>上传文件</span>
+                    <input type="file" id="fileInput" style="display: none;">
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message ai">
+                    <div class="message-avatar ai-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <div class="message-role">Deepseek AI</div>
+                            <div class="message-time">刚刚</div>
+                        </div>
+                        <div class="message-text">
+                            您好！我是Deepseek AI助手，可以为您提供问题解答、代码帮助和创意生成服务。请问有什么可以帮您的？
+                            <div class="token-count">Tokens 使用: 42</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-container">
+                <div class="preview-header" id="previewHeader" style="display: none;">
+                    <div class="preview-title">文件预览</div>
+                    <button class="remove-btn" id="removeFileBtn"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="image-preview" id="imagePreview"></div>
+                
+                <div class="tools-row">
+                    <div class="file-upload" id="uploadBtn2">
+                        <i class="fas fa-paperclip"></i>
+                        <span>添加文件</span>
+                    </div>
+                    <button class="copy-btn" id="clearChatBtn">
+                        <i class="fas fa-trash-alt"></i> 清空对话
+                    </button>
+                </div>
+                
+                <div class="input-row">
+                    <textarea class="message-input" id="messageInput" placeholder="输入消息... 输入 /image 生成图片"></textarea>
+                    <button class="send-btn" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM元素
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadBtn2 = document.getElementById('uploadBtn2');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewHeader = document.getElementById('previewHeader');
+        const removeFileBtn = document.getElementById('removeFileBtn');
+        const clearChatBtn = document.getElementById('clearChatBtn');
+        const modelBtns = document.querySelectorAll('.model-btn');
+        const tokenCountEl = document.getElementById('tokenCount');
+        const currentModelDisplay = document.getElementById('currentModelDisplay');
+        
+        // 配置
+        const API_KEY = "你的DeepSeek API密钥";
+        const API_URL = "https://api.deepseek.com/chat/completions";
+        let currentModel = "deepseek-reasoner";
+        let uploadedFile = null;
+        let totalTokens = 42; // 初始消息的token数
+        
+        // 初始化事件监听
+        function initEventListeners() {
+            sendBtn.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            uploadBtn.addEventListener('click', () => fileInput.click());
+            uploadBtn2.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileUpload);
+            removeFileBtn.addEventListener('click', removeUploadedFile);
+            clearChatBtn.addEventListener('click', clearChat);
+            
+            modelBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modelBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentModel = btn.dataset.model;
+                    currentModelDisplay.textContent = 
+                        currentModel === 'deepseek-reasoner' ? 'R1 (推理增强)' : 'V3 (对话优化)';
+                    
+                    // 添加模型切换提示
+                    addMessage(
+                        "system", 
+                        `已切换到 ${currentModel === 'deepseek-reasoner' ? 'Deepseek-R1 (推理增强)' : 'Deepseek-V3 (对话优化)'} 模型`
+                    );
+                });
+            });
+        }
+        
+        // 处理文件上传
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 简单检查文件类型
+            const validTypes = ['text/plain', 'application/pdf', 'text/csv', 
+                              'application/json', 'text/markdown', 'application/javascript',
+                              'text/html', 'text/css'];
+            
+            if (!validTypes.includes(file.type)) {
+                alert('请上传文本、代码或文档文件 (txt, pdf, csv, json, md, js, html, css)');
+                return;
+            }
+            
+            uploadedFile = file;
+            
+            // 显示预览
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.innerHTML = `<img src="${e.target.result}" alt="Uploaded Image">`;
+                    imagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.innerHTML = `
+                    <div style="padding: 15px; background: rgba(40,40,60,0.8); border-radius: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <i class="fas fa-file" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <div style="font-weight: 600;">${file.name}</div>
+                                <div style="font-size: 0.85rem; color: #a0a0c0;">${(file.size / 1024).toFixed(2)} KB</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.9rem;">文件已准备上传，将在您发送消息时一并发送</div>
+                    </div>
+                `;
+                imagePreview.style.display = 'block';
+            }
+            
+            previewHeader.style.display = 'flex';
+        }
+        
+        // 删除上传的文件
+        function removeUploadedFile() {
+            uploadedFile = null;
+            fileInput.value = '';
+            imagePreview.style.display = 'none';
+            previewHeader.style.display = 'none';
+        }
+        
+        // 清空聊天
+        function clearChat() {
+            if (confirm('确定要清空对话历史吗?')) {
+                chatMessages.innerHTML = '';
+                totalTokens = 0;
+                tokenCountEl.textContent = totalTokens;
+                addMessage(
+                    "ai", 
+                    "对话历史已清空。我是Deepseek AI助手，可以为您提供问题解答、代码帮助和创意生成服务。请问有什么可以帮您的？"
+                );
+                totalTokens += 42; // 新消息的token数
+                tokenCountEl.textContent = totalTokens;
+            }
+        }
+        
+        // 添加消息
+        function addMessage(role, content, tokens = 0) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', role);
+            
+            const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar ${role}-avatar">
+                    <i class="fas ${role === 'user' ? 'fa-user' : 'fa-robot'}"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <div class="message-role">${role === 'user' ? '您' : 'Deepseek AI'}</div>
+                        <div class="message-time">${timeString}</div>
+                    </div>
+                    <div class="message-text">${DOMPurify.sanitize(marked.parse(content))}</div>
+                    ${tokens > 0 ? `<div class="token-count">Tokens 使用: ${tokens}</div>` : ''}
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // 添加复制按钮
+            setTimeout(() => {
+                messageDiv.querySelectorAll('pre').forEach(pre => {
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'copy-code';
+                    copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                    copyBtn.onclick = () => {
+                        const code = pre.querySelector('code').innerText;
+                        navigator.clipboard.writeText(code).then(() => {
+                            copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                            setTimeout(() => {
+                                copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                            }, 2000);
+                        });
+                    };
+                    pre.appendChild(copyBtn);
+                });
+            }, 100);
+        }
+        
+        // 创建流式消息容器
+        function createStreamingMessage() {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', 'ai');
+            messageDiv.id = 'streamingMessage';
+            
+            const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar ai-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <div class="message-role">Deepseek AI</div>
+                        <div class="message-time">${timeString}</div>
+                    </div>
+                    <div class="message-text streaming-message">思考中<span class="typing-dot">.</span><span class="typing-dot">.</span><span class="typing-dot">.</span></div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            return messageDiv;
+        }
+        
+        // 处理流式响应
+        async function processStreamResponse(reader, updateCallback) {
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let fullResponse = "";
+            
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                // 处理完整的SSE事件
+                const events = buffer.split("\n\n");
+                buffer = events.pop() || ""; // 保存不完整的事件
+                
+                for (const event of events) {
+                    const lines = event.split("\n");
+                    let data = "";
+                    
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const content = line.substring(6).trim();
+                            if (content === "[DONE]") continue;
+                            
+                            try {
+                                const json = JSON.parse(content);
+                                const text = json.choices[0]?.delta?.content || "";
+                                if (text) {
+                                    fullResponse += text;
+                                    updateCallback(fullResponse);
+                                }
+                            } catch (e) {
+                                console.error("解析JSON错误:", e, "内容:", content);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return fullResponse;
+        }
+        
+        // 估计token数量
+        function estimateTokens(text) {
+            // 简单估计：中文大约1.5个字=1个token，英文大约4个字符=1个token
+            const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+            const englishChars = text.replace(/[\u4e00-\u9fa5]/g, '').length;
+            
+            return Math.ceil(chineseChars.length / 1.5 + englishChars / 4);
+        }
+        
+        // 发送消息
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message && !uploadedFile) return;
+            
+            // 添加用户消息
+            if (message) {
+                const userTokens = estimateTokens(message);
+                totalTokens += userTokens;
+                tokenCountEl.textContent = totalTokens;
+                addMessage('user', message, userTokens);
+            }
+            
+            if (uploadedFile) {
+                addMessage('user', `已上传文件: ${uploadedFile.name}`);
+            }
+            
+            messageInput.value = '';
+            
+            // 创建流式消息容器
+            const streamingMessage = createStreamingMessage();
+            const messageText = streamingMessage.querySelector('.message-text');
+            
+            try {
+                // 检查是否需要生成图片
+                if (message.toLowerCase().includes('/image') || 
+                    message.toLowerCase().includes('图片') || 
+                    message.toLowerCase().includes('生成图像')) {
+                    
+                    // 提取描述文本
+                    const description = extractDescription(message);
+                    
+                    // 生成英文描述
+                    const englishPrompt = await generateEnglishDescription(description);
+                    
+                    // 生成图片URL
+                    const imageUrl = generateImageUrl(englishPrompt);
+                    
+                    // 添加AI消息
+                    setTimeout(() => {
+                        streamingMessage.remove();
+                        const imgHtml = `根据您的描述生成图像:<br><img src="${imageUrl}" alt="Generated Image">`;
+                        const imgTokens = estimateTokens(description) + 10; // 额外token用于图片描述
+                        totalTokens += imgTokens;
+                        tokenCountEl.textContent = totalTokens;
+                        addMessage('ai', imgHtml, imgTokens);
+                    }, 1500);
+                    
+                    removeUploadedFile();
+                    return;
+                }
+                
+                // 准备消息历史
+                const messages = [
+                    {
+                        role: "system",
+                        content: "你是一个乐于助人的AI助手，尽可能详细地回答用户问题，如果用户要求生成图片，请用英文描述该图片"
+                    },
+                    {
+                        role: "user",
+                        content: message + (uploadedFile ? `\n已上传文件: ${uploadedFile.name}` : '')
+                    }
+                ];
+                
+                // 发送到API
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: currentModel,
+                        messages: messages,
+                        stream: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
+                }
+                
+                const reader = response.body.getReader();
+                let aiResponse = '';
+                
+                // 更新消息的回调函数
+                const updateMessage = (content) => {
+                    aiResponse = content;
+                    messageText.innerHTML = DOMPurify.sanitize(marked.parse(aiResponse));
+                    
+                    // 滚动到底部
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                };
+                
+                // 处理流式响应
+                aiResponse = await processStreamResponse(reader, updateMessage);
+                
+                // 添加复制按钮
+                setTimeout(() => {
+                    streamingMessage.querySelectorAll('pre').forEach(pre => {
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'copy-code';
+                        copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                        copyBtn.onclick = () => {
+                            const code = pre.querySelector('code').innerText;
+                            navigator.clipboard.writeText(code).then(() => {
+                                copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                                setTimeout(() => {
+                                    copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                                }, 2000);
+                            });
+                        };
+                        pre.appendChild(copyBtn);
+                    });
+                }, 100);
+                
+                // 更新token计数
+                const aiTokens = estimateTokens(aiResponse);
+                totalTokens += aiTokens;
+                tokenCountEl.textContent = totalTokens;
+                streamingMessage.querySelector('.message-content').innerHTML += `<div class="token-count">Tokens 使用: ${aiTokens}</div>`;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                streamingMessage.remove();
+                addMessage('ai', `抱歉，处理您的请求时出错: ${error.message}`);
+            } finally {
+                removeUploadedFile();
+            }
+        }
+        
+        // 提取描述文本
+        function extractDescription(message) {
+            // 移除命令部分
+            return message
+                .replace('/image', '')
+                .replace('图片', '')
+                .replace('生成图像', '')
+                .trim();
+        }
+        
+        // 生成英文描述
+        async function generateEnglishDescription(description) {
+            if (!description) return "A beautiful landscape with mountains and a lake";
+            
+            // 在实际应用中，这里会调用AI生成更详细的英文描述
+            // 这里简化为直接翻译和扩展
+            
+            const translations = {
+                "猫": "cute cat",
+                "狗": "friendly dog",
+                "风景": "beautiful landscape",
+                "太空": "outer space with stars and galaxies",
+                "城市": "futuristic city with neon lights",
+                "海滩": "sunny beach with palm trees and crystal clear water"
+            };
+            
+            let englishPrompt = description;
+            
+            // 简单替换一些词汇
+            for (const [chinese, english] of Object.entries(translations)) {
+                englishPrompt = englishPrompt.replace(chinese, english);
+            }
+            
+            // 添加一些修饰词
+            const modifiers = [
+                "beautiful", "amazing", "stunning", "detailed", "vibrant",
+                "colorful", "cinematic", "high quality", "4K resolution"
+            ];
+            
+            const randomModifier = modifiers[Math.floor(Math.random() * modifiers.length)];
+            return `${randomModifier} ${englishPrompt}`;
+        }
+        
+        // 生成图片URL
+        function generateImageUrl(prompt) {
+            // 编码提示词
+            const encodedPrompt = encodeURIComponent(prompt);
+            return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=100&model=flux&nologo=true`;
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initEventListeners();
+            
+            // 配置marked
+            marked.setOptions({
+                breaks: true,
+                highlight: (code, lang) => {
+                    return code;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
